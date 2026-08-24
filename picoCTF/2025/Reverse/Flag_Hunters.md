@@ -1,100 +1,52 @@
-# picoCTF 2025 - Flag Hunters
+picoCTF 2025 - Flag Hunters
 
-- **Category:** Reverse Engineering
-- **Difficulty:** Easy
-- **Author:** syreal
+Category: Reverse Engineering
+Difficulty: Easy
+Author: syreal
 
----
+So the challenge gives you a python file (lyric-reader.py) and a netcat connection. The description says something about a hidden refrain that the program doesn't print by default and that there might be something in it for us, which is basically a big hint.
 
-## Challenge Description
+Looking at the code, the flag gets read in and stuck into a variable called secret_intro, then that gets glued onto the front of the whole song:
 
-> Lyrics jump from verses to the refrain kind of like a subroutine call. There's a hidden refrain this program doesn't print by default. Can you get it to print it? There might be something in it for you.
+flag = open('flag.txt', 'r').read()
 
-- **Files provided:** `lyric-reader.py`
-- **Instance connection:** Netcat (`nc verbal-sleep.picoctf.net <port>`)
+secret_intro = \
+'''Pico warriors rising, puzzles laid bare,
+Solving each challenge with precision and flair.
+With unity and skill, flags we deliver,
+The ether’s ours to conquer, '''\
++ flag + '\n'
 
----
+So the flag is literally just sitting at the top of the lyrics. The problem is the reader function gets called like this:
 
-## Static Analysis
+reader(song_flag_hunters, '[VERSE1]')
 
-Inspecting the provided source code `lyric-reader.py`:
+and the function only starts printing from whatever line startLabel points to, going forward. Since [VERSE1] comes after the secret intro in the text, normally the program just skips right over the flag part and you never see it.
 
-1. **Hidden Flag Location:**  
-   The flag is loaded into `secret_intro` at the very beginning of the full lyrics string (`song_flag_hunters`):
+Reading through the reader function more, there's this bit:
 
-   ```python
-   flag = open('flag.txt', 'r').read()
+elif re.match(r"CROWD.*", line):
+    crowd = input('Crowd: ')
+    song_lines[lip] = 'Crowd: ' + crowd
+    lip += 1
 
-   secret_intro = \
-   '''Pico warriors rising, puzzles laid bare,
-   Solving each challenge with precision and flair.
-   With unity and skill, flags we deliver,
-   The ether’s ours to conquer, '''\
-   + flag + '\n'
+This is a "singalong" spot where the program takes whatever you type and drops it directly into the lyrics array. That felt like the way in.
 
-   song_flag_hunters = secret_intro + '''...'''
-   ```
+Then right under it:
 
-2. **Execution Flow:**  
-   At the bottom of the script, execution starts at the `[VERSE1]` label instead of the beginning:
+elif re.match(r"RETURN [0-9]+", line):
+    lip = int(line.split()[1])
 
-   ```python
-   reader(song_flag_hunters, '[VERSE1]')
-   ```
-   Because `secret_intro` is placed before `[VERSE1]` (lines 0 to 4), the default execution flow completely skips the flag.
+So if you can get a line like "RETURN 0" into the lyrics, it'll jump execution back to line 0, which is right where the secret intro (and the flag) lives.
 
-3. **Vulnerability in `reader()`:**  
-   - The interpreter parses each line into sub-commands using semicolon delimiters:
-     ```python
-     for line in song_lines[lip].split(';'):
-     ```
-   - It supports explicit jumps via regex pattern `RETURN [0-9]+`, which updates the line pointer `lip`:
-     ```python
-     elif re.match(r"RETURN [0-9]+", line):
-         lip = int(line.split()[1])
-     ```
-   - User input at the `CROWD` prompt is written directly into `song_lines[lip]` without sanitization:
-     ```python
-     elif re.match(r"CROWD.*", line):
-         crowd = input('Crowd: ')
-         song_lines[lip] = 'Crowd: ' + crowd
-         lip += 1
-     ```
+First try, I just typed RETURN 0 at the Crowd prompt. Didn't work. Then I noticed this line:
 
----
+for line in song_lines[lip].split(';'):
 
-## Exploitation
+The lines get split on semicolons too, not just newlines. So my input needed to actually look like a command in that split, not just plain text. I typed:
 
-Since input is not sanitized and the interpreter splits commands by `;`, we can inject a control command.
-
-When prompted with `Crowd: `, entering:
-```text
 ;RETURN 0
-```
-modifies the current line buffer to:
-```text
-Crowd: ;RETURN 0
-```
 
-When execution later iterates through this line, `split(';')` executes `RETURN 0`, resetting the line pointer `lip` to line `0` (the beginning of `secret_intro`).
+and that did it. The empty part before the semicolon gets skipped, and RETURN 0 gets parsed as a real jump instruction, sending the reader back to the top where the secret intro prints out.
 
-### Steps to Reproduce
-
-1. Connect to the challenge instance using Netcat:
-   ```bash
-   nc verbal-sleep.picoctf.net 56894
-   ```
-2. Wait until the first refrain reaches the `Crowd: ` prompt.
-3. Send the payload:
-   ```text
-   ;RETURN 0
-   ```
-4. The program loops back to line 0 and prints the full lyrics including the flag.
-
----
-
-## Flag
-
-```text
-picoCTF{70637h3r_f0r3v3r_0099cf61}
-```
+Flag: picoCTF{70637h3r_f0r3v3r_0099cf61}
