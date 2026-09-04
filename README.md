@@ -7,48 +7,25 @@ A collection of CTF writeups and notes from challenges I have solved while learn
 ```text
 .
 ├── picoCTF/
-│   ├── 2021/
-│   │   └── Reverse_Engineering/
-│   │       └── Transformation/
-│   │           └── README.md
-│   │
-│   ├── 2022/
-│   │   └── Reverse_Engineering/
-│   │       └── ASCII_FTW/
-│   │           └── README.md
-│   │
-│   └── 2025/
-│       └── Reverse_Engineering/
-│           └── Flag_Hunters/
-│               ├── README.md
-│               └── lyric-reader.py
+│   └── Reverse/
+│       ├── ASCII_FTW.md
+│       ├── Flag_Hunters.md
+│       └── Transformation.md
 │
 └── README.md
 ```
 
 ## Solved Challenges
 
-### picoCTF 2021
-
-| Challenge      | Category            | Difficulty | Writeup                                                             |
-| -------------- | ------------------- | ---------- | ------------------------------------------------------------------- |
-| Transformation | Reverse Engineering | Easy       | [README](picoCTF/2021/Reverse_Engineering/Transformation/README.md) |
-
-### picoCTF 2022
-
-| Challenge | Category            | Difficulty | Writeup                                                        |
-| --------- | ------------------- | ---------- | -------------------------------------------------------------- |
-| ASCII FTW | Reverse Engineering | Medium     | [README](picoCTF/2022/Reverse_Engineering/ASCII_FTW/README.md) |
-
-### picoCTF 2025
-
-| Challenge    | Category            | Difficulty | Writeup                                                           |
-| ------------ | ------------------- | ---------- | ----------------------------------------------------------------- |
-| Flag Hunters | Reverse Engineering | Easy       | [README](picoCTF/2025/Reverse_Engineering/Flag_Hunters/README.md) |
+| Challenge      | Category            | Difficulty | Writeup                                      |
+| -------------- | ------------------- | ---------- | -------------------------------------------- |
+| ASCII FTW      | Reverse Engineering | Medium     | [Writeup](picoCTF/Reverse/ASCII_FTW.md)      |
+| Flag Hunters   | Reverse Engineering | Easy       | [Writeup](picoCTF/Reverse/Flag_Hunters.md)   |
+| Transformation | Reverse Engineering | Easy       | [Writeup](picoCTF/Reverse/Transformation.md) |
 
 ## Tools
 
-Some of the tools I have used so far:
+Tools I have used so far:
 
 * Python
 * GDB
@@ -60,9 +37,9 @@ Some of the tools I have used so far:
 
 ## Notes
 
-These writeups are mainly for documenting how I approached each challenge and what I learned from solving it.
+These writeups are mainly for documenting how I approached each challenge and what I learned while solving it.
 
-Some solutions may not be the shortest or most efficient approach, especially for challenges I solved while learning a tool for the first time.
+Some solutions may not be the shortest or most efficient approach, especially when I was learning a tool or technique for the first time.
 
 ## Disclaimer
 
