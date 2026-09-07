@@ -1,0 +1,124 @@
+# buffer overflow 0
+
+**Category:** Binary Exploitation
+**Difficulty:** Medium
+**Authors:** Alex Fulton / Palash Oswal
+**Event:** picoCTF 2022
+
+## Challenge Description
+
+This was my first buffer overflow challenge.
+
+The program reads user input and eventually copies it into a fixed-size buffer:
+
+```c
+void vuln(char *input){
+    char buf2[16];
+    strcpy(buf2, input);
+}
+```
+
+The interesting part is that `buf2` can only hold 16 bytes, but `strcpy()` does not check the length of the input.
+
+The program also registers a custom handler for segmentation faults:
+
+```c
+void sigsegv_handler(int sig) {
+    printf("%s\n", flag);
+    fflush(stdout);
+    exit(1);
+}
+```
+
+and:
+
+```c
+signal(SIGSEGV, sigsegv_handler);
+```
+
+This means that if we can cause the program to crash with a segmentation fault, the signal handler will print the flag for us.
+
+## Finding the Vulnerability
+
+The main function reads input using:
+
+```c
+char buf1[100];
+gets(buf1);
+```
+
+Then the input is passed to:
+
+```c
+vuln(buf1);
+```
+
+Inside `vuln()`, it is copied into a much smaller buffer:
+
+```c
+char buf2[16];
+strcpy(buf2, input);
+```
+
+There is no bounds checking here.
+
+So if the input is longer than `buf2`, `strcpy()` continues writing past the end of the buffer and starts overwriting nearby stack memory.
+
+For this challenge, I do not need to control the return address or redirect execution to another function. I only need to make the program crash.
+
+## Exploit
+
+I connected to the remote service and first tested a short input:
+
+```text
+Input: 2
+The program will exit now
+```
+
+Nothing happens because the input fits inside the buffer.
+
+Then I sent a much longer input.
+
+The long string overflows `buf2`, corrupts the stack, and eventually causes a segmentation fault.
+
+Because the program installed `sigsegv_handler()`, the crash causes the flag to be printed:
+
+```text
+Input: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...
+picoCTF{ov3rfl0ws_ar3nt_that_bad_9f2364bc}
+```
+
+## What I Learned
+
+The vulnerable code is:
+
+```c
+char buf2[16];
+strcpy(buf2, input);
+```
+
+`strcpy()` copies data until it reaches a null byte and does not know how large the destination buffer is.
+
+If the input is larger than the destination, it can overwrite memory outside the buffer.
+
+This challenge is simpler than a typical buffer overflow exploit because we are not trying to gain control of the instruction pointer. The program itself turns a crash into a win condition by printing the flag whenever `SIGSEGV` occurs.
+
+So the exploit is simply:
+
+```text
+send enough data -> overflow buf2 -> cause SIGSEGV -> handler prints flag
+```
+
+## Conclusion
+
+This was a simple challenge, but it was useful as my first introduction to buffer overflows.
+
+The important idea is that writing more data than a fixed-size buffer can hold may corrupt nearby memory and crash the program.
+
+Later buffer overflow challenges usually require more control, such as overwriting the saved return address, but this challenge only requires causing a segmentation fault.
+
+## Flag
+
+```text
+picoCTF{ov3rfl0ws_ar3nt_that_bad_9f2364bc}
+```
