@@ -1,0 +1,387 @@
+# Picker III
+
+**Category:** Reverse Engineering
+**Difficulty:** Medium
+**Author:** LT 'syreal' Jones
+
+## Challenge Description
+
+Picker III continues the same idea as the previous Picker challenges, but this time the program tries to restrict which functions the user is allowed to execute.
+
+As usual, I started by downloading the source code and connecting to the remote instance. I first tested some of the available options to understand how the program behaved.
+
+The function table initially looks like this:
+
+```text
+1: print_table
+2: read_variable
+3: write_variable
+4: getRandomNumber
+```
+
+At first, I did not fully understand how the program selected and executed these functions, so I went back to the source code.
+
+## Understanding the Function Table
+
+The main idea of the program is that the user can enter a number from `1` to `4`, and each number corresponds to a function stored inside `func_table`.
+
+The table is initialized here:
+
+```python
+def reset_table():
+    global func_table
+
+    func_table = \
+'''\
+print_table                     \
+read_variable                   \
+write_variable                  \
+getRandomNumber                 \
+'''
+```
+
+The important constants are:
+
+```python
+FUNC_TABLE_SIZE = 4
+FUNC_TABLE_ENTRY_SIZE = 32
+```
+
+This means there are four entries, and every entry occupies exactly 32 characters.
+
+The program retrieves a function name using `get_func()`:
+
+```python
+def get_func(n):
+    global func_table
+
+    if(not check_table()):
+        print(CORRUPT_MESSAGE)
+        return
+
+    func_name = ''
+    func_name_offset = n * FUNC_TABLE_ENTRY_SIZE
+
+    for i in range(func_name_offset, func_name_offset + FUNC_TABLE_ENTRY_SIZE):
+        if(func_table[i] == ' '):
+            func_name = func_table[func_name_offset:i]
+            break
+
+    if(func_name == ''):
+        func_name = func_table[
+            func_name_offset:
+            func_name_offset + FUNC_TABLE_ENTRY_SIZE
+        ]
+
+    return func_name
+```
+
+The offset is calculated using:
+
+```python
+func_name_offset = n * FUNC_TABLE_ENTRY_SIZE
+```
+
+So every 32-character section of `func_table` represents one function name.
+
+The program also verifies that the total table size has not changed:
+
+```python
+def check_table():
+    global func_table
+
+    if(len(func_table) != FUNC_TABLE_ENTRY_SIZE * FUNC_TABLE_SIZE):
+        return False
+
+    return True
+```
+
+Since there are four entries of 32 characters each, `func_table` must always have a length of:
+
+```text
+32 * 4 = 128 characters
+```
+
+Finally, when the user selects an entry, the program retrieves the function name and executes it:
+
+```python
+func_name = get_func(n)
+eval(func_name + '()')
+```
+
+This immediately gave me the main idea for the exploit: if I could modify `func_table`, I could replace one of the allowed functions with `win`.
+
+## The Interesting Functions
+
+Two functions stood out to me almost immediately:
+
+```python
+def read_variable():
+    var_name = input('Please enter variable name to read: ')
+    if(filter_var_name(var_name)):
+        eval('print(' + var_name + ')')
+    else:
+        print('Illegal variable name')
+```
+
+and:
+
+```python
+def write_variable():
+    var_name = input('Please enter variable name to write: ')
+
+    if(filter_var_name(var_name)):
+        value = input('Please enter new value of variable: ')
+
+        if(filter_value(value)):
+            exec('global ' + var_name + '; ' + var_name + ' = ' + value)
+        else:
+            print('Illegal value')
+    else:
+        print('Illegal variable name')
+```
+
+`read_variable()` allows us to read a global variable, while `write_variable()` allows us to modify one.
+
+The variable name is checked using:
+
+```python
+def filter_var_name(var_name):
+    r = re.search('^[a-zA-Z_][a-zA-Z_0-9]*$', var_name)
+
+    if r:
+        return True
+    else:
+        return False
+```
+
+This only allows valid Python identifier-style names.
+
+However, the value being assigned uses a different filter:
+
+```python
+def filter_value(value):
+    if ';' in value or '(' in value or ')' in value:
+        return False
+    else:
+        return True
+```
+
+This is much weaker. It only blocks semicolons and parentheses.
+
+Because `write_variable()` uses `exec()`:
+
+```python
+exec('global ' + var_name + '; ' + var_name + ' = ' + value)
+```
+
+the value is still interpreted as Python code.
+
+This means that modifying `func_table` is possible.
+
+## Exploit Method 1: Overwriting the Function Table
+
+My first plan was to replace the function names inside `func_table` with `win`.
+
+I was stuck on this part for longer than necessary because I initially misread the source code and thought the value was also checked using:
+
+```python
+filter_var_name(value)
+```
+
+If that had been the case, characters such as quotes would not have been allowed.
+
+After reading the function again, I realized that `value` only passes through `filter_value()`, which does allow quotes, spaces, and the multiplication operator.
+
+At that point, the exploit became straightforward.
+
+I selected option `3`, which calls `write_variable()`:
+
+```text
+==> 3
+Please enter variable name to write: func_table
+Please enter new value of variable: 'win                             '*4
+```
+
+The string:
+
+```python
+'win                             '
+```
+
+contains `win` followed by 29 spaces.
+
+Therefore, its total length is exactly 32 characters.
+
+Multiplying it by four:
+
+```python
+'win                             ' * 4
+```
+
+creates a 128-character string containing four valid function table entries:
+
+```text
+win
+win
+win
+win
+```
+
+Conceptually, the function table is now:
+
+```text
+1: win
+2: win
+3: win
+4: win
+```
+
+Since its total length is still exactly 128 characters, `check_table()` accepts it.
+
+Now it does not matter which option from `1` to `4` is selected. Every entry resolves to `win`.
+
+For example:
+
+```text
+==> 1
+0x70 0x69 0x63 0x6f 0x43 0x54 0x46 0x7b 0x37 0x68 0x31 0x35 0x5f 0x31 0x35 0x5f 0x77 0x68 0x34 0x37 0x5f 0x77 0x33 0x5f 0x67 0x33 0x37 0x5f 0x77 0x31 0x37 0x68 0x5f 0x75 0x35 0x33 0x72 0x35 0x5f 0x31 0x6e 0x5f 0x63 0x68 0x34 0x72 0x67 0x33 0x5f 0x61 0x31 0x38 0x36 0x66 0x39 0x61 0x63 0x7d
+```
+
+The `win()` function converts each character of the flag into hexadecimal, so I used CyberChef to decode the values back into ASCII.
+
+The result was:
+
+```text
+picoCTF{7h15_15_wh47_w3_g37_w17h_u53r5_1n_ch4rg3_a186f9ac}
+```
+
+## Exploit Method 2: Rebinding an Existing Function Name
+
+After finding the first solution, I started wondering about another case.
+
+What if `value` had actually been restricted by:
+
+```python
+filter_var_name(value)
+```
+
+as I originally thought?
+
+In that case, something like:
+
+```python
+'win                             '*4
+```
+
+would not work because quotes, spaces, and `*` would not be accepted.
+
+However, there is another way to solve the challenge without modifying `func_table`.
+
+The table already contains:
+
+```text
+4: getRandomNumber
+```
+
+And Python functions are objects. A variable that currently refers to one function can be reassigned so that it refers to another function.
+
+For example:
+
+```python
+getRandomNumber = win
+```
+
+After this assignment, the name `getRandomNumber` no longer refers to the original function. It now refers to the same function object as `win`.
+
+This is somewhat similar to the idea of function pointers in C, although Python handles it through object references and name binding rather than C-style function pointers.
+
+The useful part is that both strings:
+
+```text
+getRandomNumber
+```
+
+and:
+
+```text
+win
+```
+
+are valid Python identifiers.
+
+So I can use `write_variable()` like this:
+
+```text
+==> 3
+Please enter variable name to write: getRandomNumber
+Please enter new value of variable: win
+```
+
+Internally, the program executes something equivalent to:
+
+```python
+global getRandomNumber
+getRandomNumber = win
+```
+
+The function table itself has not changed. Entry 4 still contains:
+
+```text
+getRandomNumber
+```
+
+However, `getRandomNumber` now refers to `win`.
+
+Therefore, selecting option `4` causes:
+
+```python
+eval('getRandomNumber()')
+```
+
+to execute `win()` instead.
+
+```text
+==> 4
+0x70 0x69 0x63 0x6f 0x43 0x54 0x46 0x7b 0x37 0x68 0x31 0x35 0x5f 0x31 0x35 0x5f 0x77 0x68 0x34 0x37 0x5f 0x77 0x33 0x5f 0x67 0x33 0x37 0x5f 0x77 0x31 0x37 0x68 0x5f 0x75 0x35 0x33 0x72 0x35 0x5f 0x31 0x6e 0x5f 0x63 0x68 0x34 0x72 0x67 0x33 0x5f 0x61 0x31 0x38 0x36 0x66 0x39 0x61 0x63 0x7d
+```
+
+This gives the same flag.
+
+## Conclusion
+
+Picker III tries to improve the security of the previous challenges by restricting function calls to a predefined function table. However, the program gives the user access to `write_variable()`, which can modify global variables using `exec()`.
+
+The intended restriction therefore becomes ineffective because we can modify the program's state.
+
+I found two solutions.
+
+The first is to overwrite the entire function table:
+
+```text
+==> 3
+Please enter variable name to write: func_table
+Please enter new value of variable: 'win                             '*4
+==> 1
+```
+
+This replaces all four table entries with `win`.
+
+The second method is even simpler:
+
+```text
+==> 3
+Please enter variable name to write: getRandomNumber
+Please enter new value of variable: win
+==> 4
+```
+
+Instead of changing the table, this rebinds the existing `getRandomNumber` name to the `win` function. Since the fourth table entry already calls `getRandomNumber()`, selecting option `4` now executes `win()`.
+
+The second approach is also interesting because it would still work even if values were restricted to valid identifier names.
+
+## Flag
+
+```text
+picoCTF{7h15_15_wh47_w3_g37_w17h_u53r5_1n_ch4rg3_a186f9ac}
+```
