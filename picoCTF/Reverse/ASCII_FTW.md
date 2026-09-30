@@ -181,6 +181,41 @@ and obtained:
 ```text
 0x7fffffffde90: "picoCTF{ASCII_IS_EASY_3CF4BFAD}"
 ```
+## Why Ghidra's Decompiler Doesn't Show the Flag
+
+Before using GDB, I also tried opening the binary in Ghidra. However, the decompiled `main` function only showed this:
+
+```c
+void main(void)
+
+{
+  long lVar1;
+  long in_FS_OFFSET;
+  
+  lVar1 = *(long *)(in_FS_OFFSET + 0x28);
+  printf("The flag starts with %x\n",0x61);
+  if (lVar1 != *(long *)(in_FS_OFFSET + 0x28)) {
+                    /* WARNING: Subroutine does not return */
+    __stack_chk_fail();
+  }
+  return;
+}
+```
+
+There is no trace of the flag at all. The only visible logic is the stack canary check and a single `printf` call. However, the disassembly clearly contains 31 consecutive `mov BYTE PTR [rbp-0x..], 0x..` instructions that write the flag onto the stack, so the data is definitely in the binary.
+
+My understanding of why this happens is that Ghidra's decompiler does not just translate instructions one by one. It also analyzes how data flows through the function and removes code it considers unnecessary. The flag bytes are written into a local stack buffer, but after that, the buffer is never passed to another function and the function returns right after the `printf`. Apart from the first byte, which is read back for `printf`, none of these values are ever used. From the decompiler's point of view, these writes have no effect on the program's behavior, so it treats them as dead code and removes them. The original source code was probably something like this:
+
+```c
+char flag[] = {'p','i','c','o','C','T','F','{', /* ... */ '}'};
+printf("The flag starts with %x\n", flag[0]);
+```
+
+One thing I could not fully explain is the value passed to `printf`. Ghidra shows `0x61`, but when the program actually runs, it prints `70`, and the assembly loads the first byte of the buffer, which is set to `0x70` (`'p'`). This mismatch is another reason not to fully trust the decompiled output.
+
+This is also why the challenge description explicitly says to identify the flag *by disassembling the program*. It encourages reading the raw assembly instead of relying on a decompiler, because the decompiled output can hide data that is actually present in the binary. The flag can still be found in Ghidra, but in the **Listing** (disassembly) view rather than in the Decompiler window.
+
+**Lesson learned:** A decompiler shows a simplified interpretation of the program, not the full truth. When the decompiled code looks suspiciously empty or does not match the program's behavior, it is worth checking the disassembly directly.
 
 ## Flag
 
