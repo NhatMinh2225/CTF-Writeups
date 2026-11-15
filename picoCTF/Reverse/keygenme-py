@@ -1,0 +1,134 @@
+# keygenme-py
+
+**Category:** Reverse Engineering  
+**Difficulty:** Medium  
+**Author:** syreal  
+**Event:** picoCTF 2021
+
+## Challenge Description
+
+The challenge provides a Python file named `keygenme-trial.py`.
+
+After downloading and reading through the source code, I found that the program is a trial version of **Arcane Calculator**, which requires a license key to unlock the full version.
+
+The program has several options:
+
+- **(a)** Calculate the energy required to travel to a star in the available list.
+- **(b)** A locked feature that requires the full version.
+- **(c)** Enter a license key.
+- **(d)** Exit the program.
+
+Our goal is to find a valid license key by analyzing the source code.
+
+## Analyzing the License Key
+
+Looking through the code, I found these variables:
+
+```python
+key_part_static1_trial = "academy{1n_7h3_kk3y_of_"
+key_part_dynamic1_trial = "xxxxxxxx"
+key_part_static2_trial = "}"
+
+key_full_template_trial = key_part_static1_trial + key_part_dynamic1_trial + key_part_static2_trial
+```
+
+This shows that the license key consists of three parts:
+
+- A fixed prefix: `academy{1n_7h3_kk3y_of_`
+- An unknown 8-character string.
+- A closing brace: `}`
+
+Therefore, we only need to figure out the 8 unknown characters.
+
+## Understanding the Key Validation
+
+The function responsible for checking the license key is `check_key()`.
+
+The first part checks whether the user input matches the fixed prefix. The interesting part is the validation of the dynamic characters:
+
+```python
+if key[i] != hashlib.sha256(username_trial).hexdigest()[4]:
+    return False
+else:
+    i += 1
+
+if key[i] != hashlib.sha256(username_trial).hexdigest()[5]:
+    return False
+else:
+    i += 1
+
+if key[i] != hashlib.sha256(username_trial).hexdigest()[3]:
+    return False
+else:
+    i += 1
+```
+
+The remaining checks follow the same pattern, using the indices:
+
+```text
+4 5 3 6 2 7 1 8
+```
+
+After looking into `hashlib.sha256()`, I learned that:
+
+- `hashlib.sha256()` calculates a SHA-256 hash.
+- `hexdigest()` converts the hash into a hexadecimal string.
+- `[index]` selects a character at the specified position.
+
+The username used by the program is already defined:
+
+```python
+bUsername_trial = b"MILLER"
+```
+
+So there is no need to reverse SHA-256. We simply need to calculate the hash of `MILLER` and extract the characters in the required order.
+
+## Generating the Key
+
+I wrote a short Python script to generate the missing characters:
+
+```python
+import hashlib
+
+bUsername_trial = b"MILLER"
+
+hash_value = hashlib.sha256(bUsername_trial).hexdigest()
+
+for i in [4, 5, 3, 6, 2, 7, 1, 8]:
+    print(hash_value[i], end="")
+```
+
+Running the script gives:
+
+```text
+9edf443b
+```
+
+Now we can combine this result with the static parts:
+
+```python
+key = "academy{1n_7h3_kk3y_of_" + "9edf443b" + "}"
+print(key)
+```
+
+Output:
+
+```text
+academy{1n_7h3_kk3y_of_9edf443b}
+```
+
+This is the complete license key.
+
+## Conclusion
+
+This challenge was relatively straightforward because the Python source code exposed the entire key validation logic.
+
+Instead of reversing SHA-256, we only needed to understand how `check_key()` selected specific characters from the hash and reproduce that process.
+
+It was a useful introduction to reverse engineering Python programs and understanding how license key validation works.
+
+## Flag
+
+```text
+academy{1n_7h3_kk3y_of_9edf443b}
+```
