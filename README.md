@@ -9,7 +9,11 @@ A collection of CTF writeups and notes from challenges I have solved while learn
 ├── picoCTF/
 │   └── Reverse/
 │       ├── ASCII_FTW.md
+│       ├── Buffer_Overflow_0
 │       ├── Flag_Hunters.md
+│       ├── Picker_II.md
+│       ├── Picker_III
+│       ├── Picker_IV.md
 │       └── Transformation.md
 │
 └── README.md
@@ -17,11 +21,15 @@ A collection of CTF writeups and notes from challenges I have solved while learn
 
 ## Solved Challenges
 
-| Challenge      | Category            | Difficulty | Writeup                                      |
-| -------------- | ------------------- | ---------- | -------------------------------------------- |
-| ASCII FTW      | Reverse Engineering | Medium     | [Writeup](picoCTF/Reverse/ASCII_FTW.md)      |
-| Flag Hunters   | Reverse Engineering | Easy       | [Writeup](picoCTF/Reverse/Flag_Hunters.md)   |
-| Transformation | Reverse Engineering | Easy       | [Writeup](picoCTF/Reverse/Transformation.md) |
+| Challenge        | Category            | Difficulty | Writeup                                            |
+| ---------------- | ------------------- | ---------- | -------------------------------------------------- |
+| ASCII FTW        | Reverse Engineering | Medium     | [Writeup](picoCTF/Reverse/ASCII_FTW.md)            |
+| Buffer Overflow 0| Binary Exploitation | Medium     | [Writeup](picoCTF/Reverse/Buffer_Overflow_0)       |
+| Flag Hunters     | Reverse Engineering | Easy       | [Writeup](picoCTF/Reverse/Flag_Hunters.md)         |
+| Picker II        | Reverse Engineering | Medium     | [Writeup](picoCTF/Reverse/Picker_II.md)            |
+| Picker III       | Reverse Engineering | Medium     | [Writeup](picoCTF/Reverse/Picker_III)              |
+| Picker IV        | Binary Exploitation | Medium     | [Writeup](picoCTF/Reverse/Picker_IV.md)            |
+| Transformation   | Reverse Engineering | Easy       | [Writeup](picoCTF/Reverse/Transformation.md)        |
 
 ## Tools
 
